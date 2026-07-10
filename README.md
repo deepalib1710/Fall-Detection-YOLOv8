@@ -232,10 +232,7 @@ The datasets and model outputs for this project are hosted on Google Drive due t
 * **[Test Dataset (Google Drive Direct Link)](https://drive.google.com/drive/folders/1uUewi9Fm11V_X3RHmu9UEfAF9e10n_pz?usp=sharing)** - Test videos and evaluation frames
 
 ### **🖼️ Model Outputs & Results**
-* **[Test Dataset Outputs (Google Drive Direct Link)](https://drive.google.com/drive/folders/1chK2ikJpPxc06nRpiuDv9QPKhOYYBoH2?usp=sharing)** - Annotated results and detection outputs
-
-### **💾 Custom Data**
-* **[Custom Training Data (Google Drive Direct Link)](https://drive.google.com/drive/folders/YOUR_CUSTOM_DATA_FOLDER_ID?usp=sharing)** - Additional custom datasets
+* **[Test Dataset Outputs (Google Drive Direct Link)](https://drive.google.com/drive/folders/1chK2ikJpPxcO6nRpiuDv9QPKhOYYBoH2?usp=sharing)** - Annotated results and detection outputs
 
 ---
 
