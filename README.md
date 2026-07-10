@@ -41,9 +41,9 @@ cap.release()
 
 #### **Preprocessing Steps**
 1. **Image Reading**: OpenCV loads frames from disk
-2. **Resize to Model Input**: YOLOv8 requires 640×640 input
+2. **Resize to Model Input**: Images are configured according to training phases (640×640 standard or 960×960 fine-tuning scale)
 3. **Normalization**: Pixel values scaled to [0, 1] range
-4. **Batch Creation**: Frames grouped into batches for efficient GPU processing
+4. **Batch Creation**: Frames grouped into batches (e.g., batch=4 for high-resolution refinement) for efficient GPU processing
 
 ---
 
@@ -86,7 +86,7 @@ for box in results.boxes:
 **Predictions Generated:**
 1. **Bounding Box**: (x_center, y_center, width, height) - normalized coordinates
 2. **Confidence Score**: Probability of detection (0-1)
-3. **Class Probability**: Likelihood of being a "person"
+3. **Class Probability**: Likelihood of target labels (0: Fall, 1: Normal)
 
 ---
 
@@ -108,8 +108,8 @@ with open(label_path, "w") as f:
 1. Pre-trained model detects all persons in each frame
 2. Detections automatically converted to YOLO format
 3. Labels stored as text files (one per image)
-4. Enables semi-supervised learning approach
-5. Human review can refine labels for improved accuracy
+4. Algorithmic lookup matches frame filenames against isolated standard datasets to isolate Fall indices (0) vs Normal indices (1)
+5. Dataset balancing yields a final training composition split (e.g., 622 Fall frames, 391 Normal frames)
 
 #### **Label Dataset Structure**
 ```
@@ -137,94 +137,51 @@ fall_detection_dataset/
 **Method 1: Bounding Box Geometry Analysis**
 ```python
 # Aspect ratio indicates posture
-aspect_ratio = box_width / box_height
+box_width = x2 - x1
+box_height = y2 - y1
+aspect_ratio = box_height / box_width
 
-# Normal Standing Posture:
-# - Height > Width (tall bounding box)
-# - Aspect ratio < 0.7
-
-# Fallen Posture:
-# - Width > Height (wide bounding box)  
-# - Aspect ratio > 0.9
 ```
 
 **Visual Interpretation:**
-- Standing person: Bounding box is taller than wide
-- Fallen person: Bounding box is wider than tall
+Standing/Normal posture: High vertical box profiles ($\text{height} > \text{width}$)
+Fallen posture: Compressed vertical height profiles relative to horizontal expansion ($\frac{\text{height}}{\text{width}} < 0.8$)
 
-**Method 2: Vertical Position Tracking**
+**Method 2: Multi-Stage Network Training Optimization**
 ```python
-# Track vertical position across frames
-frame_positions = []
+# Multi-stage custom weights tuning
+# Stage 1: Native Baseline Configuration
+model.train(data="data.yaml", epochs=40, imgsz=640)  # Reaches ~0.940 mAP50
 
-for frame in video_sequence:
-    detections = model(frame)
-    
-    for person in detections:
-        y_top = person.bbox.y1
-        y_bottom = person.bbox.y2
-        y_center = (y_top + y_bottom) / 2
-        
-        frame_positions.append(y_center)
-
-# Sudden drop in y_center indicates fall
-vertical_drop = frame_positions[-1] - frame_positions[-10]
+# Stage 2: High Resolution Fine-Tuning 
+model.train(data="data.yaml", epochs=20, imgsz=960, batch=4) # Finetuned weights refinement
 ```
 
-**Logic:**
-- When person falls, their center Y-coordinate increases suddenly (moves down)
-- Rate of change indicates severity of fall
-
-#### **Confidence Scoring**
+**Dynamic Risk Scoring Calculation*
 ```python
-# Multi-factor confidence calculation
-standing_score = 1.0
-if aspect_ratio > 0.8:
-    standing_score -= 0.3  # Reduce score if wide
-if vertical_drop > threshold:
-    standing_score -= 0.5  # Reduce score if falling
+# Evaluates relative proximity metrics based on vertical spatial positions
+risk_score = 0.0
+y_center = (y1 + y2) / 2
 
-fall_detected = standing_score < 0.5
+if y_center > 400:
+    risk_score = 0.9  # Height boundary zone triggers severe fall alerts
+elif y_center > 250:
+    risk_score = 0.5  # Mid-range spatial warning zone
 ```
-
 ---
 
 ### **5. Temporal Smoothing & Post-Processing**
 
 #### **Noise Reduction**
 ```python
-# Apply moving average to reduce false positives
-detection_history = []
-WINDOW_SIZE = 5  # Smooth over 5 frames
-
-for current_detection in detections:
-    detection_history.append(current_detection.confidence)
-    
-    if len(detection_history) > WINDOW_SIZE:
-        detection_history.pop(0)
-    
-    # Use average confidence
-    smoothed_confidence = sum(detection_history) / len(detection_history)
-    
-    if smoothed_confidence > CONFIDENCE_THRESHOLD:
-        ALERT("Fall Detected!")
+# Inference processes filter out secondary low-confidence noise 
+results = model.predict(source=img, conf=0.25)
 ```
 
 **Benefits:**
-- Eliminates single-frame false positives
-- Handles temporary occlusions gracefully
-- Improves alert reliability
-
-#### **Confidence Thresholding**
-```python
-CONFIDENCE_THRESHOLD = 0.5
-
-# Only process detections above threshold
-valid_detections = [d for d in detections if d.confidence > CONFIDENCE_THRESHOLD]
-
-for detection in valid_detections:
-    # Proceed with visualization and alerting
-```
+- Eliminates low confidence background artifacts
+- Maintains high sensitivity toward actual human target shapes
+- Structural class mapping logic acts as an extra confirmation filter for edge cases
 
 ---
 
@@ -232,27 +189,16 @@ for detection in valid_detections:
 
 #### **Annotation Overlay**
 ```python
-import cv2
+# Draw target status identifiers
+if cls_id == 0 or aspect_ratio < 0.8:
+    label = f"fall {conf:.2f} Risk: {risk_score}"
+    color = (0, 0, 255)  # Crimson Alert Red for verified falls
+else:
+    label = f"normal {conf:.2f}"
+    color = (0, 255, 0)  # Bright Green for standing/normal states
 
-# Render bounding boxes on frame
-for detection in detections:
-    x1, y1, x2, y2 = detection.bbox_coordinates
-    confidence = detection.confidence
-    is_fallen = detection.fall_detected
-    
-    # Choose color based on state
-    color = (0, 0, 255) if is_fallen else (0, 255, 0)  # Red if fallen, Green if normal
-    
-    # Draw rectangle
-    cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
-    
-    # Add label with confidence
-    label = f"Fall: {confidence:.2f}" if is_fallen else f"Normal: {confidence:.2f}"
-    cv2.putText(frame, label, (x1, y1 - 10), 
-                cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
-    
-    # Write frame to output video
-    video_writer.write(frame)
+cv2.rectangle(img, (int(x1), int(y1)), (int(x2), int(y2)), color, 3)
+cv2.putText(img, label, (int(x1), int(y1) - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
 ```
 
 #### **Output Formats**
@@ -268,12 +214,11 @@ for detection in detections:
 | Component | Details |
 |-----------|---------|
 | **Model** | YOLOv8m (Medium) |
-| **Input Size** | 640×640 pixels |
+| **Input Size** | Multi-Scale Training Pipeline (640×640 Baseline $\rightarrow$ 960×960 Fine-Tuning) |
 | **Framework** | PyTorch |
 | **Detection Speed** | ~50-100 FPS (GPU) / ~10-20 FPS (CPU) |
 | **Accuracy** | Optimized for person detection & fall classification |
-| **Confidence Threshold** | 0.5 (configurable) |
-| **Temporal Window** | 5 frames for smoothing |
+| **Fallback Triggers** |Aspect Ratio Threshold ($\frac{\text{height}}{\text{width}} < 0.8$) + Proximity Risk Scaling |
 | **Frame Sampling** | Every 20th frame extracted from video |
 
 ---
@@ -342,15 +287,6 @@ pip install ultralytics opencv-python torch torchvision numpy pandas
 - Renders annotated frames with bounding boxes
 - Color-codes detections (green=normal, red=fall)
 - Overlays confidence scores and labels
-
----
-
-## 📈 Performance Metrics
-
-- **Inference Time**: 6-12ms per frame (GPU)
-- **Throughput**: Up to 160+ frames per second (GPU)
-- **Model Size**: ~11-13 MB (YOLOv8m)
-- **Memory Usage**: ~2-3 GB (with batch processing)
 
 ---
 
