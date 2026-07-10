@@ -88,12 +88,6 @@ for box in results.boxes:
 2. **Confidence Score**: Probability of detection (0-1)
 3. **Class Probability**: Likelihood of being a "person"
 
-#### **Detection Output Format**
-```
-CLASS_ID X_CENTER Y_CENTER WIDTH HEIGHT
-1        0.512    0.478    0.245  0.567
-```
-
 ---
 
 ### **3. Automatic Annotation & Label Generation**
@@ -269,85 +263,6 @@ for detection in detections:
 
 ---
 
-### **7. Data Flow Diagram**
-
-```
-┌─────────────────────┐
-│   Video Input       │
-│   (MP4/AVI)         │
-└──────────┬──────────┘
-           │
-           ▼
-┌─────────────────────┐
-│  Frame Extraction   │
-│  (Every 20th frame) │
-└──────────┬──────────┘
-           │
-           ▼
-┌─────────────────────┐
-│  Preprocessing      │
-│  Resize, Normalize  │
-└──────────┬──────────┘
-           │
-           ▼
-┌─────────────────────────────────┐
-│  YOLOv8m Detection              │
-│  ├─ Backbone: Feature Extract   │
-│  ├─ Neck: Feature Fusion (PAN)  │
-│  └─ Head: Predictions           │
-└──────────┬──────────────────────┘
-           │
-           ▼
-┌─────────────────────────────┐
-│  Bounding Boxes + Confidence│
-│  Class: Person              │
-└──────────┬──────────────────┘
-           │
-           ▼
-┌─────────────────────────────────────┐
-│  Pose Analysis                      │
-│  ├─ Aspect Ratio Detection          │
-│  ├─ Vertical Position Change        │
-│  └─ Temporal Pattern Recognition    │
-└──────────┬──────────────────────────┘
-           │
-           ▼
-┌──────────────────────────────┐
-│  Fall/Normal Classification  │
-│  Confidence Scoring          │
-└──────────┬───────────────────┘
-           │
-           ▼
-┌──────────────────────────────┐
-│  Temporal Smoothing          │
-│  Moving Average (5 frames)   │
-└──────────┬───────────────────┘
-           │
-           ▼
-┌──────────────────────────────┐
-│  Confidence Thresholding     │
-│  Filter: > 0.5 confidence   │
-└──────────┬───────────────────┘
-           │
-           ▼
-┌──────────────────────────────┐
-│  Post-Processing             │
-│  ├─ Visualization            │
-│  ├─ JSON Export              │
-│  └─ Alert Generation         │
-└──────────┬───────────────────┘
-           │
-           ▼
-┌──────────────────────────────┐
-│  Output Generation           │
-│  ├─ Annotated Video          │
-│  ├─ Metadata (JSON/CSV)      │
-│  └─ Alert Logs               │
-└──────────────────────────────┘
-```
-
----
-
 ## 🛠️ Technical Specifications
 
 | Component | Details |
@@ -376,38 +291,6 @@ The datasets and model outputs for this project are hosted on Google Drive due t
 
 ### **💾 Custom Data**
 * **[Custom Training Data (Google Drive Direct Link)](https://drive.google.com/drive/folders/YOUR_CUSTOM_DATA_FOLDER_ID?usp=sharing)** - Additional custom datasets
-
----
-
-## 🚀 How to Run the Code
-
-You can run the training and inference pipeline directly via Google Colab:
-
-* 📓 **[Open Notebook in Google Colab](https://colab.research.google.com/drive/1P-wMrYQch0CseqHXtem9kZIHMronU7B9?usp=sharing)**
-
-### **Quick Start**
-
-```python
-# 1. Install dependencies
-!pip install ultralytics opencv-python
-
-# 2. Mount Google Drive
-from google.colab import drive
-drive.mount('/content/drive')
-
-# 3. Load pretrained model
-from ultralytics import YOLO
-model = YOLO("yolov8m.pt")
-
-# 4. Run inference
-results = model("path_to_video.mp4")
-
-# 5. Access predictions
-for result in results:
-    boxes = result.boxes
-    for box in boxes:
-        print(f"Confidence: {box.conf}, Class: {box.cls}")
-```
 
 ---
 
@@ -484,23 +367,3 @@ pip install ultralytics opencv-python torch torchvision numpy pandas
 
 ---
 
-## 📄 License
-
-This project is provided as-is for research and development purposes.
-
----
-
-## 👨‍💻 Author
-
-**Deepali B**
-
-For questions, contributions, or feedback, please open an issue or contact the repository owner.
-
----
-
-## 🔗 References
-
-- [YOLOv8 Documentation](https://docs.ultralytics.com/)
-- [PyTorch Official Guide](https://pytorch.org/)
-- [OpenCV Documentation](https://docs.opencv.org/)
-- [Computer Vision for Fall Detection](https://arxiv.org/)
