@@ -1,4 +1,4 @@
-# 🚨 Fall-Detection-YOLOv8
+# 🚨 Fall Detection
 
 A comprehensive fall detection system powered by **YOLOv8m** for identifying and detecting falls in video sequences. The system processes video streams with high accuracy and efficiency, providing instant detection and analysis capabilities for real-time monitoring applications.
 
